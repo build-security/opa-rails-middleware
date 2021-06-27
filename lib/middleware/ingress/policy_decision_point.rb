@@ -4,7 +4,7 @@ require 'json'
 require 'faraday'
 
 module Middleware
-    module Ingress:
+    module Ingress
         ##
         # Ingress middleware that connects to a PDP to request authz decisions.
         class PolicyDecisionPoint
