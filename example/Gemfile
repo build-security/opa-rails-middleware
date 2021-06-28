@@ -6,6 +6,7 @@ ruby '3.0.1'
 # USER DEFINED
 gem 'faraday'
 gem 'aws-sdk-ec2'
+gem 'aws-sdk-iam'
 
 gem 'twirp-rails'
 gem "webrick"
