@@ -7,7 +7,7 @@ addr = "http://localhost:3000/twirp"
 conn = Middleware::Egress::AwsInterInstanceConnection.new(addr)
 
 # Assume hello_world_server is running locally
-c = Example::HelloWorld::HelloWorldClient.new(addr)
+c = Example::HelloWorld::HelloWorldClient.new(conn)
 
 resp = c.hello(name: "World")
 if resp.error
