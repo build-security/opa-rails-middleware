@@ -2,6 +2,11 @@
 
 require 'json'
 require 'faraday'
+require 'openssl'
+require 'base64'
+
+require 'aws-sdk-ec2'
+require 'aws-sdk-iam'
 
 module Middleware
     module Ingress
@@ -48,6 +53,8 @@ module Middleware
                     conn.request(:retry, max:2, interval: @retry_backoff_milliseconds/1000, backoff_factor: 2)
                 end
 
+                @ec2 = Aws::EC2::Client.new
+                @iam = Aws::IAM::Client.new
                 @app = app
             end
 
@@ -56,7 +63,15 @@ module Middleware
             #
             # @raise [Middleware::Ingress::AuthzError] if the request fails authorization.
             def call(env)
-                body = input(env).to_json
+                headers = ActionDispatch::Http::Headers.from_hash(env)
+
+                signed_data = Base64.decode64(headers['HTTP_AWS_SIGNED_METADATA'])
+                certificate = File.read(File.join(File.dirname(__FILE__), 'aws_imds_cert.pem'))
+
+                metadata = verify(signed_data, certificate)
+                iam_instance_profile = get_instance_profile(metadata['instanceId'])
+
+                body = input(env, headers, metadata, iam_instance_profile).to_json
 
                 response = @client.post('', body, 'Content-Type' => 'application/json')
 
@@ -106,42 +121,83 @@ module Middleware
             end
 
             ##
+            # Verifies PKCS7 signed data
+            #
+            # @param pkcs7_signed_data [String] PKCS7 signed data structure with attached data
+            # @param certificate [String] certificate provided by signer
+            # 
+            # @return data [Hash] content from the PKCS7 signed data structure
+            def verify(pkcs7_signed_data, certificate)
+                cert = OpenSSL::X509::Certificate.new(certificate)
+                pkcs7 = OpenSSL::PKCS7.new(File.read(pkcs7_signed_data))
+                store = OpenSSL::X509::Store.new()
+                
+                unless pkcs7.verify([cert], store, pkcs7.data, OpenSSL::PKCS7::NOVERIFY)
+                    raise StandardError.new("Could not verify incoming request signature")
+                end
+
+                JSON.parse(pkcs7.data)
+            end
+
+            ##
+            # Fetches IAM Instace Profile information associated with the EC2 instance.
+            #
+            # @param ec2_instance_id [String]
+            #
+            # @return instance_profile [Hash] details of IAM Instance Profile associated with EC2 instance, or nil
+            def get_instance_profile(ec2_instance_id)
+                instances =  client.describe_instances({instance_ids: [ec2_instance_id]})
+                ec2_instance_profile = instances.reservations[0].instances[0].iam_instance_profile
+
+                unless ec2_instance_profile.nil?
+                    instance_profile_name = instance_profile.arn.split('/')[-1]
+                    return iam.get_instance_id(instance_profile_name).to_h
+                end
+
+                nil
+            end
+
+            ##
             # Constructs the request context required to make authz decision, which is sent to the PDP.
             # Header values received in the request are normalized. See NOTE below for examples.
             #
             # @return [Hash] the request context
-            def input(env)
+            def input(env, headers, metadata, iam_instance_profile)
                 req = Rack::Request.new(env)
 
-                headers = ActionDispatch::Http::Headers.from_hash(env)
-
                 {
-                    'request': {
-                        'scheme': req.scheme,
-                        'method': req.request_method,
-                        'path': req.path,
-                        'query':  Rack::Utils.parse_nested_query(req.query_string),
+                    'input': {
+                        'request': {
+                            'scheme': req.scheme,
+                            'method': req.request_method,
+                            'path': req.path,
+                            'query':  Rack::Utils.parse_nested_query(req.query_string),
 
-                        # NOTE: Rack normalizes all headers by adding prefixes, making uppercase and using underscores.
-                        # Examples
-                        #   Content-Type -> CONTENT_TYPE
-                        #   Accept -> HTTP_ACCEPT
-                        #   Custom-Header -> HTTP_CUSTOM_HEADER
-                        #
-                        # To separate these request headers from other environment headers added by Rails/Rack,
-                        # the following prefix matching is performed.
-                        'headers': headers.to_h.select { |k,v|
-                            ['HTTP','CONTENT','AUTHORIZATION'].any? { |s| k.to_s.starts_with? s }
+                            # NOTE: Rack normalizes all headers by adding prefixes, making uppercase and using underscores.
+                            # Examples
+                            #   Content-Type -> CONTENT_TYPE
+                            #   Accept -> HTTP_ACCEPT
+                            #   Custom-Header -> HTTP_CUSTOM_HEADER
+                            #
+                            # To separate these request headers from other environment headers added by Rails/Rack,
+                            # the following prefix matching is performed.
+                            'headers': headers.to_h.select { |k,v|
+                                ['HTTP','CONTENT','AUTHORIZATION'].any? { |s| k.to_s.starts_with? s }
+                            },
                         },
-                    },
-                    'source': {
-                        'ipAddress': req.host,
-                        'port': req.port,
-                    },
-                    'destination': {
-                        'ipAddress': req.server_name,
-                        'port': req.server_port,
-                    },
+                        'source': {
+                            'ipAddress': req.host,
+                            'port': req.port,
+                        },
+                        'destination': {
+                            'ipAddress': req.server_name,
+                            'port': req.server_port,
+                        },
+                        'aws': {
+                            'imds': metadata,
+                            'iam_instance_profile': iam_instance_profile,
+                        }
+                    }
                 }
             end
         end

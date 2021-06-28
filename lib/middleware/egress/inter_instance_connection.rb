@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'aws-sdk-ec2'
+require 'base64'
 require 'faraday'
 
 module Middleware
@@ -13,10 +14,7 @@ module Middleware
             if @@awsIdentityDocument.nil?
                 ec2_metadata = Aws::EC2Metadata.new(metadata_options)
 
-                @@awsIdentityDocument = ec2_metadata.get('/latest/dynamic/instance-identity/document').delete(" \t\r\n")
-                @@awsSignature = ec2_metadata.get('/latest/dynamic/instance-identity/pkcs7').delete(" \t\r\n")
-
-                return @@awsIdentityDocument, @@awsSignature
+                Base64.encode64(ec2_metadata.get('/latest/dynamic/instance-identity/rsa2048'))
             end
         end
 
@@ -29,10 +27,9 @@ module Middleware
             end
 
             def on_request(env)
-                id, sign = Middleware::Egress::getAwsMetadata(@metadata_options)
+                signed_data = Middleware::Egress::getAwsMetadata(@metadata_options)
                 
-                env.request_headers['Aws-Identity-Document'] = id
-                env.request_headers['Aws-Signature'] = sign
+                env.request_headers['Aws-Signed-Metadata'] = signed_data
             end
         end
 
