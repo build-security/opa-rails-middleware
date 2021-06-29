@@ -69,11 +69,12 @@ module Middleware
                 @aws_region = mdoc['region']
                 
                 idoc = JSON.parse(ec2_metadata.get('/latest/meta-data/iam/info'))
-                @aws_iam_instance_profile_name = cdoc['InstanceProfileArn'].split('/')[-1]
+                @aws_iam_instance_profile_name = idoc['InstanceProfileArn'].split('/')[-1]
 
                 cdoc = JSON.parse(ec2_metadata.get("/latest/meta-data/iam/security-credentials/#{@aws_iam_instance_profile_name}"))
                 @aws_access_key_id = cdoc['AccessKeyId']
                 @aws_secret_access_key = cdoc['SecretAccessKey']
+                @aws_session_token = cdoc['Token']
             end
 
             ##
@@ -84,8 +85,14 @@ module Middleware
                         @aws_region = region
                     end
 
-                    @ec2 = Aws::EC2::Client.new(region: @aws_region, credentials: Aws::Credentials.new(@aws_access_key_id, @aws_secret_access_key))
-                    @iam = Aws::IAM::Client.new(region: @aws_region, credentials: Aws::Credentials.new(@aws_access_key_id, @aws_secret_access_key))
+                    @ec2 = Aws::EC2::Client.new(
+                        region: @aws_region,
+                        credentials: Aws::Credentials.new(@aws_access_key_id, @aws_secret_access_key, @aws_session_token)
+                    )
+                    @iam = Aws::IAM::Client.new(
+                        region: @aws_region,
+                        credentials: Aws::Credentials.new(@aws_access_key_id, @aws_secret_access_key, @aws_session_token)
+                    )
                 end
             end
 
