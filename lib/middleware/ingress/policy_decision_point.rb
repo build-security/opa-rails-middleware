@@ -91,7 +91,7 @@ module Middleware
             def call(env)
                 headers = ActionDispatch::Http::Headers.from_hash(env)
 
-                signed_data = Base64.decode64(headers['HTTP_AWS_SIGNED_METADATA'])
+                signed_data = Base64.urlsafe_decode64(headers['HTTP_AWS_SIGNED_METADATA'])
                 certificate = File.read(File.join(File.dirname(__FILE__), 'aws_imds_cert.pem'))
 
                 metadata = verify(signed_data, certificate)

@@ -14,7 +14,7 @@ module Middleware
             if @@awsIdentityDocument.nil?
                 ec2_metadata = Aws::EC2Metadata.new(metadata_options)
 
-                Base64.encode64(ec2_metadata.get('/latest/dynamic/instance-identity/rsa2048'))
+                Base64.urlsafe_encode64(ec2_metadata.get('/latest/dynamic/instance-identity/rsa2048'))
             end
         end
 
