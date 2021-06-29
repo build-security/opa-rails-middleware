@@ -156,7 +156,7 @@ module Middleware
             # @return data [Hash] content from the PKCS7 signed data structure
             def verify(pkcs7_signed_data, certificate)
                 cert = OpenSSL::X509::Certificate.new(certificate)
-                pkcs7 = OpenSSL::PKCS7.new(File.read(pkcs7_signed_data))
+                pkcs7 = OpenSSL::PKCS7.new(pkcs7_signed_data)
                 store = OpenSSL::X509::Store.new()
                 
                 unless pkcs7.verify([cert], store, pkcs7.data, OpenSSL::PKCS7::NOVERIFY)
