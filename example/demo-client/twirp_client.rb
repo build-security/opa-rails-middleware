@@ -1,9 +1,9 @@
 require 'rack'
 
-require_relative '../controllers/rpc/hello_world/service_twirp.rb'
-require_relative '../../../lib/middleware/egress/inter_instance_connection'
+require_relative '../app/controllers/rpc/hello_world/service_twirp.rb'
+require_relative '../../lib/middleware/egress/inter_instance_connection'
 
-addr = "http://localhost:3000/twirp"
+addr = "http://ec2-13-127-156-48.ap-south-1.compute.amazonaws.com:8000/twirp"
 conn = Middleware::Egress::AwsInterInstanceConnection.new(addr)
 
 # Assume hello_world_server is running locally
