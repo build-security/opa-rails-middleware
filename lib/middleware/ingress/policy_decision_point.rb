@@ -53,8 +53,7 @@ module Middleware
                     conn.request(:retry, max:2, interval: @retry_backoff_milliseconds/1000, backoff_factor: 2)
                 end
 
-                @aws_region = fetch_aws_region()
-
+                fetch_aws_parameters()
                 update_aws_clients()
                 
                 @app = app
@@ -64,11 +63,18 @@ module Middleware
             # Fetches current AWS region from AWS IMDS
             #
             # @return region [String]
-            def fetch_aws_region
+            def fetch_aws_parameters
                 ec2_metadata = Aws::EC2Metadata.new
-                d = ec2_metadata.get('/latest/dynamic/instance-identity/document')
+                mdoc = JSON.parse(ec2_metadata.get('/latest/dynamic/instance-identity/document'))
+                @aws_region = mdoc['region']
+                
+                idoc = JSON.parse(ec2_metadata.get('/latest/meta-data/iam/info'))
+                @aws_iam_instance_profile_name = idoc['InstanceProfileArn'].split('/')[-1]
 
-                JSON.parse(d)['region']
+                cdoc = JSON.parse(ec2_metadata.get("/latest/meta-data/iam/security-credentials/#{@aws_iam_instance_profile_name}"))
+                @aws_access_key_id = cdoc['AccessKeyId']
+                @aws_secret_access_key = cdoc['SecretAccessKey']
+                @aws_session_token = cdoc['Token']
             end
 
             ##
@@ -79,8 +85,14 @@ module Middleware
                         @aws_region = region
                     end
 
-                    @ec2 = Aws::EC2::Client.new(region: @aws_region)
-                    @iam = Aws::IAM::Client.new(region: @aws_region)
+                    @ec2 = Aws::EC2::Client.new(
+                        region: @aws_region,
+                        credentials: Aws::Credentials.new(@aws_access_key_id, @aws_secret_access_key, @aws_session_token)
+                    )
+                    @iam = Aws::IAM::Client.new(
+                        region: @aws_region,
+                        credentials: Aws::Credentials.new(@aws_access_key_id, @aws_secret_access_key, @aws_session_token)
+                    )
                 end
             end
 
@@ -160,7 +172,9 @@ module Middleware
                 store = OpenSSL::X509::Store.new()
                 
                 unless pkcs7.verify([cert], store, pkcs7.data, OpenSSL::PKCS7::NOVERIFY)
-                    raise StandardError.new("Could not verify incoming request signature")
+                    raise AuthnError(
+                        StandardError.new("Could not verify incoming request signature")
+                    )
                 end
 
                 JSON.parse(pkcs7.data)
@@ -226,6 +240,15 @@ module Middleware
                         }
                     }
                 }
+            end
+        end
+
+        ##
+        # Represents an authentication attempt failure.
+        class AuthnError < StandardError
+            def initialize(e = nil)
+                super e
+                set_backtrace e.backtrace if e
             end
         end
 
