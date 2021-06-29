@@ -194,7 +194,7 @@ module Middleware
                     instance_profile_name = ec2_instance_profile.arn.split('/')[-1]
                     return @iam.get_instance_profile({
                         instance_profile_name: instance_profile_name,
-                    }).to_h['instance_profile']
+                    }).to_h[:instance_profile]
                 end
 
                 nil
