@@ -191,8 +191,10 @@ module Middleware
                 ec2_instance_profile = instances.reservations[0].instances[0].iam_instance_profile
 
                 unless ec2_instance_profile.nil?
-                    instance_profile_name = instance_profile.arn.split('/')[-1]
-                    return @iam.get_instance_id(instance_profile_name).to_h
+                    instance_profile_name = ec2_instance_profile.arn.split('/')[-1]
+                    return @iam.get_instance_profile({
+                        instance_profile_name: instance_profile_name,
+                    }).to_h['instance_profile']
                 end
 
                 nil
