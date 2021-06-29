@@ -5,7 +5,7 @@ conn = Middleware::Egress::AwsInterInstanceConnection.new
 resp = conn.get('http://ec2-13-127-156-48.ap-south-1.compute.amazonaws.com:8000')
 
 if resp.success?
-    print("Successfully connected to service\n")
+    puts "Successfully connected to service"
 else
-    print("Could not connect to service\n")
+    puts "Could not connect to service"
 end

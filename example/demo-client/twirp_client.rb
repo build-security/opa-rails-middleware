@@ -11,7 +11,7 @@ c = Example::HelloWorld::HelloWorldClient.new(conn)
 
 resp = c.hello(name: "World")
 if resp.error
-  puts resp.error
+  puts "Error during Twirp request"
 else
-  puts resp.data.message
+  puts "Successfully connected: #{resp.data.message}"
 end
