@@ -20,6 +20,6 @@ module SampleApp
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
-    config.middleware.use Middleware::Ingress::PolicyDecisionPoint
+    config.middleware.use BuildSecurity::Ingress::PolicyDecisionPoint
   end
 end
