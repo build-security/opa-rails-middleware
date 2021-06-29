@@ -53,9 +53,35 @@ module Middleware
                     conn.request(:retry, max:2, interval: @retry_backoff_milliseconds/1000, backoff_factor: 2)
                 end
 
-                @ec2 = Aws::EC2::Client.new
-                @iam = Aws::IAM::Client.new
+                @aws_region = fetch_aws_region()
+
+                update_aws_clients()
+                
                 @app = app
+            end
+
+            ##
+            # Fetches current AWS region from AWS IMDS
+            #
+            # @return region [String]
+            def fetch_aws_region
+                ec2_metadata = Aws::EC2Metadata.new
+                d = ec2_metadata.get('/latest/dynamic/instance-identity/document')
+
+                JSON.parse(d)['region']
+            end
+
+            ##
+            # Creates/updates AWS clients
+            def update_aws_clients(region = nil)
+                if region.nil? || region != @aws_region
+                    unless region.nil?
+                        @aws_region = region
+                    end
+
+                    @ec2 = Aws::EC2::Client.new(region: @aws_region)
+                    @iam = Aws::IAM::Client.new(region: @aws_region)
+                end
             end
 
             ##
@@ -69,6 +95,7 @@ module Middleware
                 certificate = File.read(File.join(File.dirname(__FILE__), 'aws_imds_cert.pem'))
 
                 metadata = verify(signed_data, certificate)
+                update_aws_clients(metadata['region'])
                 iam_instance_profile = get_instance_profile(metadata['instanceId'])
 
                 body = input(env, headers, metadata, iam_instance_profile).to_json
@@ -146,12 +173,12 @@ module Middleware
             #
             # @return instance_profile [Hash] details of IAM Instance Profile associated with EC2 instance, or nil
             def get_instance_profile(ec2_instance_id)
-                instances =  client.describe_instances({instance_ids: [ec2_instance_id]})
+                instances =  @ec2.describe_instances({instance_ids: [ec2_instance_id]})
                 ec2_instance_profile = instances.reservations[0].instances[0].iam_instance_profile
 
                 unless ec2_instance_profile.nil?
                     instance_profile_name = instance_profile.arn.split('/')[-1]
-                    return iam.get_instance_id(instance_profile_name).to_h
+                    return @iam.get_instance_id(instance_profile_name).to_h
                 end
 
                 nil
