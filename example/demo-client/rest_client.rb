@@ -1,6 +1,6 @@
-require_relative '../../lib/middleware/egress/inter_instance_connection'
+require_relative '../../lib/middleware/egress/aws_faraday_connection'
 
-conn = Middleware::Egress::AwsInterInstanceConnection.new
+conn = BuildSecurity::Egress::AwsFaradayConnection.new
 
 resp = conn.get('http://ec2-13-127-156-48.ap-south-1.compute.amazonaws.com:8000')
 

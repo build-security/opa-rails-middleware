@@ -8,7 +8,7 @@ require 'base64'
 require 'aws-sdk-ec2'
 require 'aws-sdk-iam'
 
-module Middleware
+module BuildSecurity
     module Ingress
         ##
         # Ingress middleware that connects to a PDP to request authz decisions.
