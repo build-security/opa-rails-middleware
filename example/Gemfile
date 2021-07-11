@@ -7,6 +7,7 @@ ruby '3.0.1'
 gem 'faraday'
 gem 'aws-sdk-ec2'
 gem 'aws-sdk-iam'
+gem 'jwt'
 
 gem 'twirp-rails'
 gem "webrick"

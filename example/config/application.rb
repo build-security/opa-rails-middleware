@@ -1,5 +1,5 @@
 require_relative "boot"
-require_relative "../../lib/middleware/ingress/policy_decision_point"
+require_relative "../policy_decision_point"
 
 require "rails/all"
 
@@ -20,6 +20,6 @@ module SampleApp
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
-    config.middleware.use BuildSecurity::Ingress::PolicyDecisionPoint
+    config.middleware.use PolicyDecisionPoint::PDP
   end
 end
