@@ -36,7 +36,7 @@ gem "policy_decision_point"
 and run `bundle install`
 
 ---
-### Simple usage
+### Add middleware to your Rails application
 
 To intercept and authorize requests being made to your Rails application, add the following line to your `config/application.rb` file, under the `Application` class:
 
