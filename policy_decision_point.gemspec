@@ -7,6 +7,7 @@ Gem::Specification.new do |spec|
   spec.version       = PolicyDecisionPoint::VERSION
   spec.authors       = ["Yash Tewari"]
   spec.email         = ["yashtewari1996@gmail.com"]
+  spec.licenses      = ["MIT"]
 
   spec.summary       = "Rails middleware that authorizes incoming requests against a Policy Decision Point, such as an Open Policy Agent server"
   # spec.description   = "TODO: Write a longer description or delete this line."
